@@ -6,6 +6,8 @@ Mae dogfennaeth gan Mozilla ar DeepSpeech ar gael fan hyn: https://deepspeech.re
 
 Mae'r sgriptiau canlynol yn cysylltu ag yn hwyluso'r holl gamau a ddilynir er mwyn hyfforddi, gynhyrchu a gwerthuso modelau adnabod lleferydd Cymraeg gyda DeepSpeech Mozilla. Defnyddir setiau Cymraeg o wefan CommonVoice Mozilla fel prif ffynhonnell data hyfforddi. Gydag adnoddau bellach gan Uned Technolegau Iaith, Prifysgol Bangor, mae'r modelau'n addas ar gyfer rhaglenni cynorthwyydd digidol (e.e. Macsen) a thrawsgrifiwr gyffredinol. 
 
+Mae modelau sydd wedi'i hyfforddi'n barod ar gael o'r dudalen cyhoeddi: https://github.com/techiaith/docker-deepspeech-cy/releases
+
 
 ## Rhagofynion
 
@@ -16,16 +18,16 @@ Llwythwch i lawr hefyd Corpws OSCAR o https://oscar-public.huma-num.fr/shuff-ori
 
 ## Paratoi Data
 
-### `import_audio_archive.py`
+### `import_cv_archive.py`
 
 ```shell
-root@c67722092f2e:/DeepSpeech# bin/bangor_welsh/import_audio_archive.py --archive /data/commonvoice/cy.tar.gz --target_dir /data/commonvoice/
+root@c67722092f2e:/DeepSpeech# bin/bangor_welsh/import_cv_archive.py --archive /data/commonvoice/cy.tar.gz --target_dir /data/commonvoice/
 ```
 
-### `analyze_audio.py`
+### `analyze_cv.py`
 
 ```shell
-root@c67722092f2e:/DeepSpeech# /DeepSpeech/bin/bangor_welsh/analyze_audio.py --csv_dir /data/commonvoice/clips/
+root@c67722092f2e:/DeepSpeech# /DeepSpeech/bin/bangor_welsh/analyze_cv.py --cv_dir /data/commonvoice/
 /data/commonvoice-cy-v5-20200622/clips/dev.csv                0.91 hours      (3269.93 seconds)
 /data/commonvoice-cy-v5-20200622/clips/test.csv               0.98 hours      (3514.49 seconds)
 /data/commonvoice-cy-v5-20200622/clips/train.csv              1.09 hours      (3941.04 seconds)
@@ -36,14 +38,14 @@ root@c67722092f2e:/DeepSpeech# /DeepSpeech/bin/bangor_welsh/analyze_audio.py --c
 
 ## Model Acwstig
 
-Defnyddiwch y sgript ganlynol i hyfforddi model acwstig. Dyle paramedr `-a` nodi ble mae'r ffeiliau CSV o ganlyniad i fewnforio CommonVoice. Yn yr enghraifft hon, maent wedi'u lleoli yn is-gyfeiriadur `/clips` y `target_dir` gwreiddiol.
+Defnyddiwch y sgript ganlynol i hyfforddi model acwstig gyda data gan gwefan CommonVoice.
 
 ### `run_tl_cv_cy.sh`
 
 Mae'r sgript hon yn defnyddio nodwedd dysgu trosglwyddol (*transfer learning*) DeepSpeech er mwyn cael fudd o ddefnyddio modelau acwstig Saesneg Mozilla, sydd wedi'u hyfforddi ar gasgliadau data llawer mwy o sain, fel man cychwyn ar gyfer hyfforddi adnabod lleferydd Cymraeg.
 
 ```shell
-root@c67722092f2e:/DeepSpeech# /DeepSpeech/bin/bangor_welsh/run_tl_cv_cy.sh -a /data/commonvoice/clips
+root@c67722092f2e:/DeepSpeech# ./bin/bangor_welsh/run_tl_cv_cy.sh --cv_dir /data/commonvoice
 ```
 
 
@@ -58,7 +60,7 @@ Mae angen rhagor o adnoddau gan Brifysgol Bangor er mwyn hyfforddi DeepSpeech ar
 Mae'r sgript isod yn llwytho i lawr rhagor o recordiadau a corpora testun sydd yn galluogi adnabod lleferydd Cymraeg o fewn cynorthwyydd digidol a trawsgrifiwr. Rhaid i chi llwytho i lawr ffeil archif corpws testun OSCAR o flaen llaw er mwyn ei ddefnyddio gyda'r orchymyn isod:
 
 ```shell
-root@6a88b0d59848:/DeepSpeech# bin/bangor_welsh/import_bangor_resources.py -o /data/oscar/cy.txt.gzip -c /data/commonvoice/validated.tsv
+root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/import_bangor_resources.py --target_dir /data/bangor --oscar_archive /data/oscar/cy.txt.gzip --cv_dir /data/commonvoice/
 ```
 
 Mae'r sgript mewnforio hefyd yn hidlo unrhyw testunau sy'n anaddas i'r proses hyfforddi modelau iaith adnabod lleferydd ac yn creu copi 'glan' (`.clean`) o'r corpws. 
@@ -70,12 +72,12 @@ Dyma'r brif sgript ar gyfer hyfforddi model iaith ac yna ei werthuso gyda model 
 
 ##### Ar gyfer defnyddio adnabod lleferydd o fewn Macsen:
 ```shell
-root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/build_lm_scorer.sh -s /data/bangor/lm-data/macsen/corpus.clean.txt -t /data/bangor/testsets/data/macsen/deepspeech.csv -o /data/bangor/lm/macsen
+root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/build_lm_scorer.sh --text_file /data/bangor/lm-data/macsen/corpus.clean.txt --domain macsen
 ```
 
 ##### Ar gyfer defnyddio adnabod lleferydd i drawsgrifio:
 ```shell
-root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/build_lm_scorer.sh -s /data/bangor/lm-data/oscar/corpus.clean.txt -t /data/bangor/testsets/data/trawsgrifio/deepspeech.csv -o /data/bangor/lm/trawsgrifio
+root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/build_lm_scorer.sh --text_file /data/bangor/lm-data/oscar/corpus.clean.txt --domain macsen --output_dir /export/macsen --scorer kenlm.scorer
 ```
 
 
@@ -84,8 +86,18 @@ root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/build_lm_scorer.sh -s /data/ba
 
 Bydd y sgript yma yn arbrofi gyda gwahanol baramedrau modelau iaith nes iddo ddod o hyd i'r gwerthoedd gorau posibl sy'n rhoi'r cyfraddau gwallau adnabod lleferydd isaf posibl.
  
-Gall y broses gymryd amser hir - oriau neu ddiwrnod neu ddau - gan y bydd yn arbrofi miloedd o weithiau. Yn y diwedd, bydd y sgript yn adrodd ar ddau werth gorau posibl ac yn gofyn ichi eu mewnbynnu i'w cynnwys ym mhecyn terfynol y model iaith. (gweler y ffeil `kenlm.scorer` yn y cyfeiriadur a bennir gan y ddadl sgript` -l`)
+Gall y broses gymryd amser hir - oriau neu ddiwrnod neu ddau - gan y bydd yn arbrofi miloedd o weithiau. Yn y diwedd, bydd y sgript yn adrodd ar ddau werth gorau posibl (gelwir yn 'alpha' a 'beta') ac yn gofyn ichi eu mewnbynnu er mwyn eu cynnwys ym mhecyn terfynol y model iaith.
 
 ```shell
-root@6a88b0d59848:/DeepSpeech# bin/bangor_welsh/optimize_lm_scorer.sh -l /data/bangor/lm/mascen -t /data/bangor/testsets/data/macsen/deepspeech.csv
+root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/optimize_lm_scorer.sh --csv_test_file /data/bangor/testsets/data/macsen/deepspeech.csv --domain macsen [--checkpoint_dir /checkpoints/cy]
 ```
+
+
+## Profi'r modelau
+
+Er mwyn gwybod pa mor dda neu ddim mae'r modelau, mae modd profi erbyn set profi sydd wedi ei fanylu o fewn ffeil CSV. Er enghraifft, er mwyn profi'r modelau trawsgrifio:
+
+```shell
+root@6a88b0d59848:/DeepSpeech# ./bin/bangor_welsh/evaluate.sh --csv_test_file /data/bangor/testsets/data/trawsgrifio/arddweud_200617/deepspeech.csv --scorer /export/transcribe/kenlm.transcribe.scorer
+```
+

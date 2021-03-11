@@ -1,5 +1,5 @@
 ARG BRANCH
-FROM mozilla/deepspeech:$BRANCH
+FROM mozilla/deepspeech-train:$BRANCH
 
 RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash \
 	&& apt-get update && apt-get install -y git-lfs lame sox libsox-fmt-mp3 vim zip file locales-all \

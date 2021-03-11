@@ -6,6 +6,8 @@ import os
 import sys
 import pandas as pd
 
+from pathlib import Path
+
 from sklearn.model_selection import KFold
 from sklearn import datasets, linear_model
 from sklearn.model_selection import train_test_split
@@ -16,6 +18,8 @@ def create_kfolds(csvfile, dest_dir, k):
     
     print ("Splitting %s into kfolds" % csvfile)
 
+    Path(dest_dir).mkdir(parents=True, exist_ok=True)
+    
     kf = KFold(n_splits=k, shuffle=True, random_state=2)
 
     try:

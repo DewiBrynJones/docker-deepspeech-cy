@@ -3,22 +3,17 @@
 import os
 import sys
 import tarfile
-import pandas
-import csv
 import shlex
 import shutil
 import subprocess
 import glob
 
 from pathlib import Path
-from utils.clean_transcript import clean_transcript
 from argparse import ArgumentParser, RawTextHelpFormatter
 
 DESCRIPTION = """
 
 """
-
-ALPHABET_FILE_PATH = "/DeepSpeech/bin/bangor_welsh/alphabet.txt"
 
 
 def extract(source_tar_gz, target_dir):
@@ -39,44 +34,10 @@ def extract(source_tar_gz, target_dir):
             shutil.move(file_path, target_dir)
 
 
-
-def panda_group(df, column, destination_file_path):
-
-    df_grp_client = df.groupby(column).size().to_frame('count').reset_index()
-    df_grp_client = df_grp_client.sort_values("count", ascending=False)
-    df_grp_client.to_csv(destination_file_path)
-    
-
-
-def analyze_tsvs(cv_root_dir):
-    #client_id	path	sentence	up_votes	down_votes	age	gender	accent	locale	segment
-    tsv_files = Path(cv_root_dir).glob("*.tsv")
-    for tsv_file_path in tsv_files:
-        
-        print ("Analyzing %s " % tsv_file_path)
-
-        if 'reported.tsv' in str(tsv_file_path):
-            continue
-        
-        df = pandas.read_csv(tsv_file_path, encoding='utf-8', sep='\t', header=0, dtype={'gender':str})
-
-        panda_group(df, 'client_id', str(tsv_file_path).replace(".tsv",".counts.client_id.txt"))
-        panda_group(df, 'sentence', str(tsv_file_path).replace(".tsv",".counts.sentence.txt"))
-        
-        panda_group(df, 'age', str(tsv_file_path).replace(".tsv",".counts.age.txt"))
-        panda_group(df, 'gender', str(tsv_file_path).replace(".tsv",".counts.gender.txt"))
-
-        # analyze clients by age and gender....    
-
-
-    
 def main(cv_archive_file_path, cv_root_dir, **args):
 
     extract(cv_archive_file_path, cv_root_dir)
     
-    #    
-    analyze_tsvs(cv_root_dir)
-
     #
     print ("Preparing for DeepSpeech with import_cv2.py")
     cmd = "python3 /DeepSpeech/bin/import_cv2.py %s --validate_label_locale /DeepSpeech/bin/bangor_welsh/utils/validate_label_locale.py" % (cv_root_dir)

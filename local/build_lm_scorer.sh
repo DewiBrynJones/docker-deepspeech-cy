@@ -3,47 +3,87 @@ set -e
 set -u
 set -o pipefail
 
+help()
+{
+	echo
+	echo "Rhedeg sgriptiau hyfforddi modelau iaith KenLM i'w defnyddio gyda DeepSpeech"
+	echo "Run scripts for training KenLM language models for use with DeepSpeech"
+	echo
+	echo "Syntax: $ `basename $0` [OPTIONS]"
+	echo
+	echo "Options:"
+	echo
+	echo " -t, --text_file        Path to text file containing all corpus text "
+	echo " -d, --domain           Name for language model domain (e.g. 'macsen' or 'transcribe' "
+  echo " -o, --output_dir       (optional) Default: /export/${DEEPSPEECH_RELEASE}_${TECHIAITH_RELEASE}"
+	echo
+	exit 0
+}
+
+lm_domain=''
 source_text_file=''
-output_dir=''
-test_files=''
+output_dir=/export/${DEEPSPEECH_RELEASE}_${TECHIAITH_RELEASE}
 
-VOCAB_SIZE=50000
+SHORT=ht:d:o:
+LONG=text_file:,domain:,output_dir:
 
-alphabet_file_path=/DeepSpeech/bin/bangor_welsh/alphabet.txt
-checkpoint_cy_dir=/checkpoints/cy
+# read options
+OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@")
 
-while getopts ":s:t:o:" opt; do
-  case $opt in
-    s) 
-		    source_text_file=$OPTARG		
-        ;;
-    t)
-        test_files=$OPTARG
-        ;;
-	  o)
-		    output_dir=$OPTARG
-		    ;;    
-    \?) echo "Invalid option -$OPTARG" >&2
-    ;;
+
+if [ $? != 0 ] ; then 
+	echo "Failed to parse options...exiting." >&2 ; 
+	exit 1 ; 
+fi
+
+eval set -- "$OPTS"
+
+while true ; do
+  case "$1" in
+    -t | --text_file )
+      source_text_file="$2"
+      shift 2
+      ;;
+    -d | --domain )
+      lm_domain="$2"
+      shift 2
+      ;;
+    -o | --output_dir )
+      output_dir="$2"
+      shift 2
+      ;;       
+    -h | --help )
+      help
+      shift
+      ;;
+    -- )
+      shift
+      break
+      ;;   
+    *)
+      help
+      exit 1
+      ;;
   esac
 done
-shift "$(($OPTIND -1))"
 
 if [ -z "${source_text_file}" ]; then
-	echo "-s source_text_file not set"
+    echo "--text_file missing. Use `basename $0` -h for more info."                                                                               
+    exit 2                                                                                                                                        
+fi
+
+if [ -z "${lm_domain}" ]; then
+    echo "--domain missing. Use `basename $0` -h for more info."
     exit 2
-fi
-if [ -z "$test_files" ]; then
-    echo "-t test_files not set (csv file containing speech test set)"
-   	exit 2
-fi
-if [ -z "$output_dir" ]; then
-    echo "-o output_dir not set"
-   	exit 2
 fi
 
 mkdir -p ${output_dir}
 cd ${output_dir}
+
+VOCAB_SIZE=50000
+alphabet_file_path=/DeepSpeech/bin/bangor_welsh/alphabet.txt
+
+
 
 set +x
 echo "####################################################################################"
@@ -63,42 +103,63 @@ python /DeepSpeech/data/lm/generate_lm.py \
   --binary_type 'trie' \
   --discount_fallback
 
+#
+set +x
+
+default_alpha=1.7242448485503816
+default_beta=4.9065413926676165
+
+default_alpha_file="${output_dir}/optimal_alpha.${lm_domain}.txt"
+default_beta_file="${output_dir}/optimal_beta.${lm_domain}.txt"
+
+bangor_default_alpha_file=/DeepSpeech/bin/bangor_welsh/conf/default_lm_alpha.${lm_domain}.txt
+bangor_default_beta_file=/DeepSpeech/bin/bangor_welsh/conf/default_lm_beta.${lm_domain}.txt
+
+if [ -f ${bangor_default_alpha_file} ] ; then
+  if [ ! -f ${default_alpha_file} ] ; then
+    cp ${bangor_default_alpha_file} ${default_alpha_file}
+  fi
+fi
+
+if [ -f ${bangor_default_beta_file} ] ; then
+  if [ ! -f ${default_beta_file} ] ; then    
+    cp ${bangor_default_beta_file} ${default_beta_file}
+  fi
+fi
+
+if [ -f ${default_alpha_file} ] ; then
+  default_alpha=$(<${default_alpha_file})
+fi
+
+if [ -f ${default_beta_file} ] ; then
+  default_beta=$(<${default_beta_file})
+fi
 
 
 set +x
 echo "####################################################################################"
-echo "#### Generating package for un-optimized language model package                 ####"
+echo "#### Generating language model package                                          ####"
 echo "####                                                                            ####"
-echo "#### Default alpha and beta values used. Previous optimal values were:          ####"
+echo "#### Default alpha and beta values are                                          ####"
 echo "####                                                                            ####"
-echo "#### Voice Assistant Language Model                                             ####"
-echo "####    alpha: 1.7242448485503816                                               ####"
-echo "####    beta:  4.9065413926676165                                               ####"
-echo "####                                                                            ####"
-echo "#### Transcription Language Model                                               ####"
-echo "####    alpha: 1.1417685444561605                                               ####"
-echo "####    beta:  0.5798010479098541                                               ####"
+echo "####  alpha : ${default_alpha}                                                ####"
+echo "####  beta  : ${default_beta}                                                ####"
 echo "####                                                                            ####"
 echo "####################################################################################"
 set -x
+
 /DeepSpeech/native_client/generate_scorer_package \
 	--alphabet "${alphabet_file_path}" \
 	--lm lm.binary \
 	--vocab vocab-${VOCAB_SIZE}.txt \
-	--package kenlm.scorer \
- 	--default_alpha 0.75 \
-	--default_beta 1.85
+	--package kenlm.${lm_domain}.scorer \
+ 	--default_alpha ${default_alpha} \
+	--default_beta ${default_beta}
 
+cd -
 
 set +x
 echo "####################################################################################"
-echo "#### Evaluate Scorer with current Welsh checkpoint      											   ###"
+echo "#### Successfully built lm package : ${output_dir}/kenlm.${lm_domain}.scorer "
 echo "####################################################################################"
 set -x
-python -u /DeepSpeech/evaluate.py \
-	--test_files "${test_files}" --test_batch_size 1 \
-	--alphabet_config_path "${alphabet_file_path}" \
-	--load_checkpoint_dir "${checkpoint_cy_dir}" \
-	--scorer_path kenlm.scorer
-
-cd -

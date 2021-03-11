@@ -1,10 +1,11 @@
 default: build
 
-DEEPSPEECH_RELEASE := 0.9.1
-TECHIAITH_RELEASE := 21.01
+DEEPSPEECH_RELEASE := 0.9.3
+TECHIAITH_RELEASE := 21.03
+
 
 run: 
-	docker run --gpus all --name techiaith-deepspeech-v${DEEPSPEECH_RELEASE}-${USER} -it \
+	docker run --gpus all --name techiaith-deepspeech-train-v${DEEPSPEECH_RELEASE}-${USER} -it \
 		-v ${PWD}/data/:/data \
 		-v ${PWD}/checkpoints/:/checkpoints \
 		-v ${PWD}/models/:/models \
@@ -13,15 +14,11 @@ run:
 		-v ${PWD}/local/:/DeepSpeech/bin/bangor_welsh \
 		--env DEEPSPEECH_RELEASE=${DEEPSPEECH_RELEASE} \
 		--env TECHIAITH_RELEASE=${TECHIAITH_RELEASE} \
-		techiaith/deepspeech:v${DEEPSPEECH_RELEASE} bash
+		techiaith/deepspeech-train:v${DEEPSPEECH_RELEASE} bash
 
 
 build:
 	
-	if [ ! -d "DeepSpeech" ]; then \
-	    git clone https://github.com/mozilla/DeepSpeech.git; \
-	fi
-	cd DeepSpeech && make Dockerfile.train DEEPSPEECH_SHA=tags/v${DEEPSPEECH_RELEASE} && docker build --rm -t mozilla/deepspeech:v${DEEPSPEECH_RELEASE} -f Dockerfile.train .
 	if [ ! -d "checkpoints/mozilla" ]; then \
 	    mkdir -p checkpoints/mozilla; \
 	    cd checkpoints/mozilla && \
@@ -48,20 +45,17 @@ build:
 		wget https://github.com/techiaith/docker-deepspeech-cy/releases/download/$(TECHIAITH_RELEASE)/techiaith_bangor_macsen_$(TECHIAITH_RELEASE).scorer && \
 		wget https://github.com/techiaith/docker-deepspeech-cy/releases/download/$(TECHIAITH_RELEASE)/techiaith_bangor_transcribe_$(TECHIAITH_RELEASE).scorer;\
 	fi
-	docker build --build-arg BRANCH=v${DEEPSPEECH_RELEASE} --rm -t techiaith/deepspeech:v${DEEPSPEECH_RELEASE} .
+	docker build --build-arg BRANCH=v${DEEPSPEECH_RELEASE} --rm -t techiaith/deepspeech-train:v${DEEPSPEECH_RELEASE} .
 
 
 clean:
-	-docker rmi techiaith/deepspeech:v${DEEPSPEECH_RELEASE}
-	-docker rmi mozilla/deepspeech:v${DEEPSPEECH_RELEASE}
-	-docker rmi nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
-	-docker rmi tensorflow/tensorflow:1.15.2-gpu-py3
-	sudo rm -rf DeepSpeech
+	-docker rmi techiaith/deepspeech-train:v${DEEPSPEECH_RELEASE}
+	-docker rmi mozilla/deepspeech-train:v${DEEPSPEECH_RELEASE}	
 	sudo rm -rf homedir
 	sudo rm -rf checkpoints
 	sudo rm -rf models
 
 
 stop:
-	-docker stop techiaith-deepspeech-v${DEEPSPEECH_RELEASE}-${USER}
-	-docker rm techiaith-deepspeech-v${DEEPSPEECH_RELEASE}-${USER}
+	-docker stop techiaith-deepspeech-train-v${DEEPSPEECH_RELEASE}-${USER}
+	-docker rm techiaith-deepspeech-train-v${DEEPSPEECH_RELEASE}-${USER}

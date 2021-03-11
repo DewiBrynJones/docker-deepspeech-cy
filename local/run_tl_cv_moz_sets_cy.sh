@@ -4,8 +4,8 @@ set -e
 help()
 {
 	echo
-	echo "Rhedeg sgriptiau hyfforddi modelau acwstig DeepSpeech gyda data o CommonVoice"
-	echo "Run scripts for training DeepSpeech acoustic models with data from CommonVoice"
+	echo "Rhedeg sgriptiau hyfforddi modelau acwstig DeepSpeech gyda setiau data Mozilla o CommonVoice"
+	echo "Run scripts for training DeepSpeech acoustic models with Mozilla prescribed datasets from CommonVoice"
 	echo
 	echo "Syntax: $ `basename $0` [OPTIONS]"
 	echo
@@ -19,7 +19,7 @@ help()
 
 
 SHORT=hc:
-LONG=help,cv_dir:
+LONG=cv_dir:
 
 cv_dir=''
 
@@ -32,7 +32,7 @@ if [ $? != 0 ] ; then
 	exit 1 ; 
 fi
 
-eval set -- "$OPTS"
+eval set "$OPTS"
 
 while true ; do
   case "$1" in
@@ -40,14 +40,10 @@ while true ; do
       cv_dir="$2"
       shift 2
       ;;
-    -h | --help)
+    -h)
       help
       shift
-      ;;
-	-- )
-	  shift
-	  break
-	  ;;
+      ;;    
     *)
       help
       exit 1
@@ -55,25 +51,19 @@ while true ; do
   esac
 done
 
-if [ -z "${cv_dir}" ]; then
-    echo "--cv_dir missing. Use `basename $0` -h for more info."	
-    exit 2
-fi
-
 
 ###
-model_name='bangor'
+model_name='bangor-mozilla-welsh'
 model_language='cy-Latn-GB'
 model_license='MPL'
-model_description='Welsh language acoustic model trained using transfer learning and approximately 90hrs of validated and other Welsh speech data from the Mozilla CommonVoice December 2020 release.'
-
+model_description='Welsh language acoustic model trained using transfer learning and Mozilla''s prescribed CommonVoice datasets for training, validation and testing.'
 model_author='techiaith'
 model_contact_info='techiaith@bangor.ac.uk'
 
 echo
 echo "####################################################################################"
 echo " model_name : ${model_name}"
-echo " model_language : ${model_language}"
+echo " model_language : ${cy-Latn-GB}"
 echo " model_license : ${model_license}"
 echo " model_description : ${model_description}"
 echo " model_author : ${model_author}"
@@ -83,9 +73,11 @@ echo " DeepSpeech Version : ${DEEPSPEECH_RELEASE} "
 echo "####################################################################################"
 echo
 
-
 ###
-train_files=${cv_dir}/clips/validated.csv,${cv_dir}/clips/other.csv
+train_files=${csv_dir}/train.csv
+devset_files=${csv_dir}/dev.csv
+test_files=${csv_dir}/test.csv
+
 alphabet_cy_file=/DeepSpeech/bin/bangor_welsh/alphabet.txt
 
 checkpoint_dir=/checkpoints
@@ -96,7 +88,7 @@ export_dir=/export/${DEEPSPEECH_RELEASE}_${TECHIAITH_RELEASE}
 export PYTHONIOENCODING=utf-8
 
 checkpoint_en_dir="${checkpoint_dir}/en"
-checkpoint_cy_dir="${checkpoint_dir}/cy"
+checkpoint_cy_dir="${checkpoint_dir}/cy-moz"
 
 rm -rf ${checkpoint_en_dir}
 rm -rf ${checkpoint_cy_dir}
@@ -116,13 +108,14 @@ echo "##########################################################################
 set -x
 python -u DeepSpeech.py \
 	--train_files "${train_files}" \
-	--train_batch_size 64 \
+	--dev_files "${devset_files}" \
+	--train_batch_size 24 \
 	--drop_source_layers 2 \
 	--epochs 10 \
 	--alphabet_config_path "${alphabet_cy_file}" \
 	--load_checkpoint_dir "${checkpoint_en_dir}" \
 	--save_checkpoint_dir "${checkpoint_cy_dir}"
-	
+
 
 set +x
 echo
@@ -131,11 +124,14 @@ echo "#### Export new Welsh checkpoint to frozen model                          
 echo "####################################################################################"
 set -x
 python -u DeepSpeech.py \
-	--train_files "${train_files}" --train_batch_size 64 \
+	--train_files "${train_files}" \
+	--train_batch_size 64 \
+	--test_files "${test_files}" \
 	--epochs 1 \
 	--alphabet_config_path "${alphabet_cy_file}" \
-	--load_checkpoint_dir "${checkpoint_cy_dir}" \
 	--save_checkpoint_dir "${checkpoint_cy_dir}" \
+	--load_checkpoint_dir "${checkpoint_cy_dir}" \
+	--remove_export \
 	--export_dir "${export_dir}" \
 	--export_author_id "${model_author}" \
 	--export_model_name "${model_name}" \
